@@ -1,4 +1,3 @@
-
 import telebot
 from telebot import types
 import time
@@ -39,11 +38,17 @@ def ask_for_code(call):
 def process_subscription_code(message):
     sub_code = message.text
     if sub_code.lower().startswith("vip") and len(sub_code) > 3:
-        # بررسی بخش عددی کد
         code_part = sub_code[3:].strip()
         if code_part.isdigit() and len(code_part) <= 4:
             user_info = f"ID:{message.chat.id}\n📥 **درخواست جدید**\n👤 نام: {message.from_user.first_name}\n🔢 کد: `{sub_code}`"
-            user_reply = "✅ درخواست شما دریافت شد تا دقایقی دیگر استعلام از پنل برای شما ارسال خواهد شد.\n\n✨ **نکته:** بدلیل اختلال احتمالی در پنل و دامنه ir صبور باشید و از اسپم خودداری کنید."
+            
+            # --- متن دقیق طبق خواسته شما ---
+            user_reply = (
+                "✅ درخواست شما دریافت شد تا دقایقی دیگر استعلام از پنل برا شما ارسال خواهد شد.\n\n"
+                "✨ نکته: گاهی اوقات بدلیل اختلال تو پنل صنایی و دامنه ir ممکنه روند کمی طول بکشه صبور باشید و از اسپم ربات خودداری کنید"
+            )
+            # -------------------------------
+            
             bot.send_message(YOUR_PERSONAL_ID, user_info, parse_mode='Markdown')
             bot.send_message(message.chat.id, user_reply)
         else:
@@ -51,17 +56,15 @@ def process_subscription_code(message):
     else:
         bot.send_message(message.chat.id, "❌ خطا: کد باید با vip شروع شود.")
 
-# سیستم پاسخگویی ادمین به کاربر
 @bot.message_handler(func=lambda m: m.reply_to_message is not None and m.from_user.id == YOUR_PERSONAL_ID)
 def reply_to_user(message):
     try:
         original_msg = message.reply_to_message.text
-        # استخراج آیدی کاربر از متن پیام ادمین
         user_id = original_msg.split('\n')[0].replace('ID:', '').strip()
         bot.send_message(user_id, message.text)
         bot.reply_to(message, "✅ برای کاربر ارسال شد.")
-    except Exception as e:
-        bot.reply_to(message, f"❌ خطا در ارسال پیام به کاربر.")
+    except Exception:
+        bot.reply_to(message, "❌ خطا در یافتن آیدی کاربر.")
 
 if __name__ == "__main__":
     print("Shadow is starting...")
