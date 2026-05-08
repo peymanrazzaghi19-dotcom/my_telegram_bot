@@ -58,6 +58,6 @@ def reply_to_user(message):
     except:
         bot.reply_to(message, "❌ خطا در یافتن آیدی کاربر.")
 
-if name == "main":
-    print("Shadow is starting...")
-    bot.infinity_polling()
+if __name__ == "__main__":
+‎ print("Shadow is starting...")
+‎ bot.infinity_polling()
