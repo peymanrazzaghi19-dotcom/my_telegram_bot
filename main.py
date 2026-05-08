@@ -1,37 +1,67 @@
+
 import telebot
+from telebot import types
+import time
 import os
 
+# تنظیمات اصلی از متغیرهای Railway
 API_TOKEN = os.getenv('BOT_TOKEN')
-ADMIN_ID = int(os.getenv('ADMIN_ID', '0'))
+YOUR_PERSONAL_ID = int(os.getenv('ADMIN_ID', '0'))
+
 bot = telebot.TeleBot(API_TOKEN)
+user_last_msg_time = {}
+
+# سیستم جلوگیری از اسپم (فاصله 5 ثانیه‌ای)
+def is_spamming(user_id):
+    current_time = time.time()
+    last_time = user_last_msg_time.get(user_id, 0)
+    if current_time - last_time < 5:
+        return True
+    user_last_msg_time[user_id] = current_time
+    return False
 
 @bot.message_handler(commands=['start'])
-def start(message):
-    markup = telebot.types.InlineKeyboardMarkup()
-    markup.add(telebot.types.InlineKeyboardButton("🔍 استعلام حجم", callback_data="check"))
-    bot.send_message(message.chat.id, f"سلام {message.from_user.first_name} خوش اومدی!", reply_markup=markup)
+def send_welcome(message):
+    user_name = message.from_user.first_name
+    markup = types.InlineKeyboardMarkup()
+    btn_check = types.InlineKeyboardButton("🔍 استعلام حجم", callback_data="check_volume")
+    markup.add(btn_check)
+    bot.send_message(message.chat.id, f"سلام {user_name} خوش اومدی!", reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda call: call.data == "check")
-def ask(call):
-    msg = bot.send_message(call.message.chat.id, "لطفاً کد اشتراک (مثال: vip1234) را بفرستید:")
-    bot.register_next_step_handler(msg, process)
+@bot.callback_query_handler(func=lambda call: call.data == "check_volume")
+def ask_for_code(call):
+    if is_spamming(call.from_user.id):
+        bot.answer_callback_query(call.id, "⚠️ لطفاً اسپم نکنید!")
+        return
+    msg = bot.send_message(call.message.chat.id, "لطفاً کد اشتراک خود را ارسال کنید (مثال: vip1234)")
+    bot.register_next_step_handler(msg, process_subscription_code)
 
-def process(message):
-    code = message.text
-    if code.lower().startswith("vip"):
-        bot.send_message(ADMIN_ID, f"ID:{message.chat.id}\n👤: {message.from_user.first_name}\n🔢: `{code}`", parse_mode='Markdown')
-        bot.send_message(message.chat.id, "✅ درخواست شما ارسال شد.")
+def process_subscription_code(message):
+    sub_code = message.text
+    if sub_code.lower().startswith("vip") and len(sub_code) > 3:
+        # بررسی بخش عددی کد
+        code_part = sub_code[3:].strip()
+        if code_part.isdigit() and len(code_part) <= 4:
+            user_info = f"ID:{message.chat.id}\n📥 **درخواست جدید**\n👤 نام: {message.from_user.first_name}\n🔢 کد: `{sub_code}`"
+            user_reply = "✅ درخواست شما دریافت شد تا دقایقی دیگر استعلام از پنل برای شما ارسال خواهد شد.\n\n✨ **نکته:** بدلیل اختلال احتمالی در پنل و دامنه ir صبور باشید و از اسپم خودداری کنید."
+            bot.send_message(YOUR_PERSONAL_ID, user_info, parse_mode='Markdown')
+            bot.send_message(message.chat.id, user_reply)
+        else:
+            bot.send_message(message.chat.id, "❌ خطا: بخش عددی نباید بیشتر از ۴ رقم باشد.")
     else:
-        bot.send_message(message.chat.id, "❌ کد باید با vip شروع شود.")
+        bot.send_message(message.chat.id, "❌ خطا: کد باید با vip شروع شود.")
 
-@bot.message_handler(func=lambda m: m.reply_to_message and m.from_user.id == ADMIN_ID)
-def reply(message):
+# سیستم پاسخگویی ادمین به کاربر
+@bot.message_handler(func=lambda m: m.reply_to_message is not None and m.from_user.id == YOUR_PERSONAL_ID)
+def reply_to_user(message):
     try:
-        uid = message.reply_to_message.text.split('\n')[0].replace('ID:', '').strip()
-        bot.send_message(uid, message.text)
-        bot.reply_to(message, "✅ ارسال شد.")
-    except:
-        bot.reply_to(message, "❌ خطا در یافتن آیدی.")
+        original_msg = message.reply_to_message.text
+        # استخراج آیدی کاربر از متن پیام ادمین
+        user_id = original_msg.split('\n')[0].replace('ID:', '').strip()
+        bot.send_message(user_id, message.text)
+        bot.reply_to(message, "✅ برای کاربر ارسال شد.")
+    except Exception as e:
+        bot.reply_to(message, f"❌ خطا در ارسال پیام به کاربر.")
 
 if __name__ == "__main__":
     print("Shadow is starting...")
